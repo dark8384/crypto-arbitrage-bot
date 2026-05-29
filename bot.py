@@ -2,75 +2,114 @@ import requests
 import pandas as pd
 from tabulate import tabulate
 
-MIN_FUNDING_GAP = 0.20
-MAX_SPREAD_LOSS = 0.40
+MIN_FUNDING_GAP = 0.10  # Filter thoda kam kiya takisab coins dikhein
 
-def scan_markets():
-    print("[🔄] GitHub Cloud Engine: Aggregator Pipeline API Active. Scanning...")
+def fetch_real_rates():
+    print("[🔄] Connecting to CoinGecko Global API Pipeline...")
     
-    # Using public crypto aggregator to completely bypass Binance/Bybit IP firewalls
-    url = "https://min-api.cryptocompare.com/data/v2/vapi/channels?sub_types=funding_rate,ticker"
+    # CoinGecko Derivatives API endpoint jo GitHub par block nahi hota aur live data deta hai
+    url = "https://api.coingecko.com/api/v3/derivatives"
     
     try:
         response = requests.get(url, timeout=15)
         if response.status_code != 200:
-            print(f"❌ Aggregator Network Busy: Status Code {response.status_code}")
+            print(f"❌ API Limit reached or busy (Status: {response.status_code})")
             return
         data = response.json()
     except Exception as e:
-        print(f"❌ Pipeline Execution Blocked: {e}")
+        print(f"❌ Network Error: {e}")
         return
 
-    # Mock list to process incoming metrics safely
     opportunities = []
-    
-    # Fallback simulation logic for demonstration inside GitHub workflow output terminal
-    # This prevents the action runner from throwing a 403 or 451 error directly
-    sample_monitored_coins = ['BTC', 'ETH', 'SOL', 'AVAX', 'XRP', 'LINK', 'ADA', 'DOT']
-    
-    print("[🟢] Connection Established! Extracting rates via data-stream...")
-    
-    # We simulate data computation mapping so GitHub logs print cleanly without hitting direct exchange endpoints
-    for coin in sample_monitored_coins:
+    print("[🟢] Live Stream Connected! Processing real-time exchange rates...\n")
+
+    for item in data:
         try:
-            # Simulated safe response values mapped from live parameters
-            b_price = 73200.0 if coin == 'BTC' else 3850.0
-            by_price = 73215.0 if coin == 'BTC' else 3848.0
+            # Sirf Bybit aur Binance Futures ka data filter karna
+            exchange = item.get('market', '').lower()
+            if 'binance' not in exchange and 'bybit' not in exchange:
+                continue
+
+            symbol = item.get('symbol', '')
+            # Sirf USDT pairs target karne ke liye
+            if not symbol.endswith('USDT'):
+                continue
+
+            coin = symbol.replace('USDT', '')
+            price = float(item.get('price', 0))
             
-            b_funding_pct = +0.2500 if coin == 'BTC' else -0.0150
-            by_funding_pct = +0.0200 if coin == 'BTC' else +0.0350
+            # Real Funding Rate percentage me convert kar rahe hain
+            funding_rate = float(item.get('funding_rate', 0))
             
-            funding_gap = abs(b_funding_pct - by_funding_pct)
+            # Map parameters dynamically to a structural list
+            opportunities.append({
+                "Coin": coin,
+                "Exchange": "Binance" if "binance" in exchange else "Bybit",
+                "Price": price,
+                "Funding Rate": funding_rate
+            })
+        except:
+            continue
+
+    if not opportunities:
+        print("⚡ Is time data filter me koi coin nahi aaya. Re-run workflow thodi der baad karein.")
+        return
+
+    # Dono exchanges ka data aapas me match karwana matrix ke liye
+    df_raw = pd.DataFrame(opportunities)
+    
+    # Separate Binance and Bybit sets
+    binance_df = df_raw[df_raw['Exchange'] == 'Binance'].set_index('Coin')
+    bybit_df = df_raw[df_raw['Exchange'] == 'Bybit'].set_index('Coin')
+
+    matched_opportunities = []
+    common_coins = set(binance_df.index).intersection(set(bybit_df.index))
+
+    for coin in common_coins:
+        try:
+            b_rate = binance_df.loc[coin, 'Funding Rate']
+            by_rate = bybit_df.loc[coin, 'Funding Rate']
+            
+            # If multiple records found, take the first one
+            if isinstance(b_rate, pd.Series): b_rate = b_rate.iloc[0]
+            if isinstance(by_rate, pd.Series): by_rate = by_rate.iloc[0]
+            
+            b_price = binance_df.loc[coin, 'Price']
+            by_price = bybit_df.loc[coin, 'Price']
+            if isinstance(b_price, pd.Series): b_price = b_price.iloc[0]
+            if isinstance(by_price, pd.Series): by_price = by_price.iloc[0]
+
+            funding_gap = abs(b_rate - by_rate)
             spread_pct = (abs(b_price - by_price) / ((b_price + by_price) / 2)) * 100
-            est_net_profit = funding_gap - spread_pct
+            net_profit = funding_gap - spread_pct
 
             if funding_gap >= MIN_FUNDING_GAP:
-                status = "🟢 SAFE TO ENTER" if spread_pct <= MAX_SPREAD_LOSS else "❌ UNSAFE (High Spread)"
                 direction = "Short Binance / Long Bybit" if b_price > by_price else "Long Binance / Short Bybit"
+                status = "🟢 SAFE" if spread_pct < 0.35 else "❌ HIGH SPREAD"
 
-                opportunities.append({
+                matched_opportunities.append({
                     "Coin": coin,
-                    "Binance Price": f"${b_price:,.2f}",
-                    "Bybit Price": f"${by_price:,.2f}",
-                    "Binance Funding": f"{b_funding_pct:+.4f}%",
-                    "Bybit Funding": f"{by_funding_pct:+.4f}%",
+                    "Binance Price": f"${b_price:,.4f}",
+                    "Bybit Price": f"${by_price:,.4f}",
+                    "Binance Funding": f"{b_rate:+.4f}%",
+                    "Bybit Funding": f"{by_rate:+.4f}%",
                     "Funding Gap": f"{funding_gap:.4f}%",
                     "Spread": f"{spread_pct:.4f}%",
-                    "Est Net": f"{est_net_profit:+.4f}%",
+                    "Est Net": f"{net_profit:+.4f}%",
                     "Direction": direction,
                     "Status": status
                 })
         except:
             continue
 
-    if opportunities:
-        df = pd.DataFrame(opportunities).sort_values(by="Funding Gap", ascending=False)
-        print("\n" + "="*120)
-        print("💰 CRYPTO FUNDING RATE ARBITRAGE REPORT (AGGREGATOR BYPASS) 💰")
+    if matched_opportunities:
+        final_df = pd.DataFrame(matched_opportunities).sort_values(by="Funding Gap", ascending=False)
         print("="*120)
-        print(tabulate(df, headers='keys', tablefmt='grid', showindex=False))
+        print("💰 REAL-TIME CRYPTO ARBITRAGE LIVE REPORT (COINGECKO API BYPASS) 💰")
+        print("="*120)
+        print(tabulate(final_df, headers='keys', tablefmt='grid', showindex=False))
     else:
-        print("⚡ Connectivity established! No pairs cross the 0.20% funding delta right now.")
+        print("⚡ Server Active! But right now no real coins cross the funding gap threshold.")
 
 if __name__ == "__main__":
-    scan_markets()
+    fetch_real_rates()
