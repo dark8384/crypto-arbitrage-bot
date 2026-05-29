@@ -1,0 +1,53 @@
+{
+    "last_updated": "2026-05-29 22:43:56 UTC",
+    "data": [
+        {
+            "Coin": "LITE",
+            "Binance Price": "$849.5300",
+            "Bybit Price": "$848.3900",
+            "Binance Funding": "+0.1087%",
+            "Bybit Funding": "+0.0000%",
+            "Funding Gap": "0.1087%",
+            "Spread": "0.1343%",
+            "Est Net": "-0.0256%",
+            "Direction": "Short Binance / Long Bybit",
+            "Status": "\ud83d\udfe2 SAFE"
+        },
+        {
+            "Coin": "ID",
+            "Binance Price": "$0.0400",
+            "Bybit Price": "$0.0400",
+            "Binance Funding": "-0.3544%",
+            "Bybit Funding": "-0.7807%",
+            "Funding Gap": "0.4263%",
+            "Spread": "0.0000%",
+            "Est Net": "+0.4263%",
+            "Direction": "Long Binance / Short Bybit",
+            "Status": "\ud83d\udfe2 SAFE"
+        },
+        {
+            "Coin": "HEMI",
+            "Binance Price": "$0.0100",
+            "Bybit Price": "$0.0100",
+            "Binance Funding": "-0.2380%",
+            "Bybit Funding": "+0.0050%",
+            "Funding Gap": "0.2430%",
+            "Spread": "0.0000%",
+            "Est Net": "+0.2430%",
+            "Direction": "Long Binance / Short Bybit",
+            "Status": "\ud83d\udfe2 SAFE"
+        },
+        {
+            "Coin": "ARM",
+            "Binance Price": "$353.9000",
+            "Bybit Price": "$354.1800",
+            "Binance Funding": "-0.3354%",
+            "Bybit Funding": "-0.2291%",
+            "Funding Gap": "0.1062%",
+            "Spread": "0.0791%",
+            "Est Net": "+0.0272%",
+            "Direction": "Long Binance / Short Bybit",
+            "Status": "\ud83d\udfe2 SAFE"
+        }
+    ]
+}
