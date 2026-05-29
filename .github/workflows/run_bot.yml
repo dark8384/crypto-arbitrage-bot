@@ -2,25 +2,35 @@ name: Crypto Arbitrage Scanner
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Har 15 minute me background me khud chalega
-  workflow_dispatch:        # Isse aap khud manually button daba kar jab chahein run kar sakte hain
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
 
 jobs:
   run-scanner:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Gaining authorization rewrite control access tags
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
     - name: Install Dependencies
       run: |
-        pip install ccxt pandas tabulate
+        pip install requests pandas
 
     - name: Execute Arbitrage Bot
       run: python bot.py
+
+    - name: Commit and Push live data.json back to Repository
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add data.json
+        git commit -m "Automated live sync pricing block refresh" || exit 0
+        git push
