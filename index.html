@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Crypto Arbitrage Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121214; color: #e1e1e6; margin: 20px; }
+        h1 { color: #00e676; text-align: center; }
+        .meta { text-align: center; color: #a4a4a8; margin-bottom: 20px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background-color: #1a1a1e; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #29292e; }
+        th { background-color: #29292e; color: #00e676; }
+        tr:hover { background-color: #222226; }
+        .safe { color: #00e676; font-weight: bold; }
+        .unsafe { color: #ff5252; font-weight: bold; }
+    </style>
+    <script>
+        // HTML Frontend Client level automatic background refreshing (Har 5 Seconds)
+        async function loadData() {
+            try {
+                const response = await fetch('data.json?t=' + new Date().getTime());
+                const json = await response.json();
+                
+                document.getElementById('update-time').innerText = "Last Exchange Sync: " + json.last_updated;
+                
+                let tableBody = document.getElementById('table-body');
+                tableBody.innerHTML = "";
+                
+                if(json.data.length === 0) {
+                    tableBody.innerHTML = "<tr><td colspan='10' style='text-align:center;'>Scanning... No active assets crossing delta metrics.</td></tr>";
+                    return;
+                }
+                
+                // Sorting array logic live on frontend side
+                json.data.sort((a, b) => parseFloat(b['Funding Gap']) - parseFloat(a['Funding Gap']));
+                
+                json.data.forEach(row => {
+                    let statusClass = row.Status.includes('SAFE') ? 'safe' : 'unsafe';
+                    let tr = `<tr>
+                        <td><strong>${row.Coin}</strong></td>
+                        <td>${row['Binance Price']}</td>
+                        <td>${row['Bybit Price']}</td>
+                        <td style="color:#ffb74d">${row['Binance Funding']}</td>
+                        <td style="color:#ffb74d">${row['Bybit Funding']}</td>
+                        <td style="font-weight:bold; color:#00e676">${row['Funding Gap']}</td>
+                        <td>${row.Spread}</td>
+                        <td style="font-weight:bold">${row['Est Net']}</td>
+                        <td>${row.Direction}</td>
+                        <td class="${statusClass}">${row.Status}</td>
+                    </tr>`;
+                    tableBody.innerHTML += tr;
+                });
+            } catch (e) {
+                console.log("Waiting for cloud deployment data updates...");
+            }
+        }
+        setInterval(loadData, 5000); // Trigger live browser DOM updates securely every 5 seconds
+        window.onload = loadData;
+    </script>
+</head>
+<body>
+    <h1>💰 CRYPTO FUTURES FUNDING ARBITRAGE MATRIX 💰</h1>
+    <div class="meta" id="update-time">Connecting to cloud storage pipeline...</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Coin</th>
+                <th>Binance Price</th>
+                <th>Bybit Price</th>
+                <th>Binance Fund</th>
+                <th>Bybit Fund</th>
+                <th>Gap</th>
+                <th>Spread</th>
+                <th>Est Net</th>
+                <th>Direction</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="table-body">
+            <tr><td colspan="10" style="text-align:center;">Initializing pipeline...</td></tr>
+        </tbody>
+    </table>
+</body>
+</html>
