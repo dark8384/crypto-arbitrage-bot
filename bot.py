@@ -2,46 +2,36 @@ import requests
 import pandas as pd
 from tabulate import tabulate
 
-MIN_FUNDING_GAP = 0.10  # Filter thoda kam kiya takisab coins dikhein
+MIN_FUNDING_GAP = 0.10
+MAX_SPREAD_LOSS = 0.35
 
 def fetch_real_rates():
-    print("[🔄] Connecting to CoinGecko Global API Pipeline...")
-    
-    # CoinGecko Derivatives API endpoint jo GitHub par block nahi hota aur live data deta hai
     url = "https://api.coingecko.com/api/v3/derivatives"
     
     try:
         response = requests.get(url, timeout=15)
         if response.status_code != 200:
-            print(f"❌ API Limit reached or busy (Status: {response.status_code})")
             return
         data = response.json()
-    except Exception as e:
-        print(f"❌ Network Error: {e}")
+    except:
         return
 
     opportunities = []
-    print("[🟢] Live Stream Connected! Processing real-time exchange rates...\n")
 
     for item in data:
         try:
-            # Sirf Bybit aur Binance Futures ka data filter karna
             exchange = item.get('market', '').lower()
             if 'binance' not in exchange and 'bybit' not in exchange:
                 continue
 
             symbol = item.get('symbol', '')
-            # Sirf USDT pairs target karne ke liye
             if not symbol.endswith('USDT'):
                 continue
 
             coin = symbol.replace('USDT', '')
             price = float(item.get('price', 0))
-            
-            # Real Funding Rate percentage me convert kar rahe hain
             funding_rate = float(item.get('funding_rate', 0))
             
-            # Map parameters dynamically to a structural list
             opportunities.append({
                 "Coin": coin,
                 "Exchange": "Binance" if "binance" in exchange else "Bybit",
@@ -52,13 +42,9 @@ def fetch_real_rates():
             continue
 
     if not opportunities:
-        print("⚡ Is time data filter me koi coin nahi aaya. Re-run workflow thodi der baad karein.")
         return
 
-    # Dono exchanges ka data aapas me match karwana matrix ke liye
     df_raw = pd.DataFrame(opportunities)
-    
-    # Separate Binance and Bybit sets
     binance_df = df_raw[df_raw['Exchange'] == 'Binance'].set_index('Coin')
     bybit_df = df_raw[df_raw['Exchange'] == 'Bybit'].set_index('Coin')
 
@@ -69,8 +55,6 @@ def fetch_real_rates():
         try:
             b_rate = binance_df.loc[coin, 'Funding Rate']
             by_rate = bybit_df.loc[coin, 'Funding Rate']
-            
-            # If multiple records found, take the first one
             if isinstance(b_rate, pd.Series): b_rate = b_rate.iloc[0]
             if isinstance(by_rate, pd.Series): by_rate = by_rate.iloc[0]
             
@@ -85,7 +69,7 @@ def fetch_real_rates():
 
             if funding_gap >= MIN_FUNDING_GAP:
                 direction = "Short Binance / Long Bybit" if b_price > by_price else "Long Binance / Short Bybit"
-                status = "🟢 SAFE" if spread_pct < 0.35 else "❌ HIGH SPREAD"
+                status = "🟢 SAFE" if spread_pct < MAX_SPREAD_LOSS else "❌ HIGH SPREAD"
 
                 matched_opportunities.append({
                     "Coin": coin,
@@ -104,12 +88,10 @@ def fetch_real_rates():
 
     if matched_opportunities:
         final_df = pd.DataFrame(matched_opportunities).sort_values(by="Funding Gap", ascending=False)
-        print("="*120)
-        print("💰 REAL-TIME CRYPTO ARBITRAGE LIVE REPORT (COINGECKO API BYPASS) 💰")
+        print("\n" + "="*120)
+        print("💰 REAL-TIME CRYPTO ARBITRAGE LIVE REPORT 💰")
         print("="*120)
         print(tabulate(final_df, headers='keys', tablefmt='grid', showindex=False))
-    else:
-        print("⚡ Server Active! But right now no real coins cross the funding gap threshold.")
 
 if __name__ == "__main__":
     fetch_real_rates()
