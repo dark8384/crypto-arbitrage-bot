@@ -1,11 +1,12 @@
 import requests
 import pandas as pd
-from tabulate import tabulate
+import json
+from datetime import datetime
 
 MIN_FUNDING_GAP = 0.10
 MAX_SPREAD_LOSS = 0.35
 
-def fetch_real_rates():
+def fetch_and_generate():
     url = "https://api.coingecko.com/api/v3/derivatives"
     
     try:
@@ -32,6 +33,9 @@ def fetch_real_rates():
             price = float(item.get('price', 0))
             funding_rate = float(item.get('funding_rate', 0))
             
+            if price <= 0:
+                continue
+
             opportunities.append({
                 "Coin": coin,
                 "Exchange": "Binance" if "binance" in exchange else "Bybit",
@@ -63,8 +67,12 @@ def fetch_real_rates():
             if isinstance(b_price, pd.Series): b_price = b_price.iloc[0]
             if isinstance(by_price, pd.Series): by_price = by_price.iloc[0]
 
+            if b_price <= 0 or by_price <= 0:
+                continue
+
             funding_gap = abs(b_rate - by_rate)
-            spread_pct = (abs(b_price - by_price) / ((b_price + by_price) / 2)) * 100
+            avg_price = (b_price + by_price) / 2
+            spread_pct = (abs(b_price - by_price) / avg_price) * 100
             net_profit = funding_gap - spread_pct
 
             if funding_gap >= MIN_FUNDING_GAP:
@@ -86,12 +94,15 @@ def fetch_real_rates():
         except:
             continue
 
-    if matched_opportunities:
-        final_df = pd.DataFrame(matched_opportunities).sort_values(by="Funding Gap", ascending=False)
-        print("\n" + "="*120)
-        print("💰 REAL-TIME CRYPTO ARBITRAGE LIVE REPORT 💰")
-        print("="*120)
-        print(tabulate(final_df, headers='keys', tablefmt='grid', showindex=False))
+    # JSON formats me save kar rahe hain taaki webpage ise fetch karke refresh kar sake
+    final_data = {
+        "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "data": matched_opportunities if matched_opportunities else []
+    }
+    
+    with open('data.json', 'w') as f:
+        json.dump(final_data, f, indent=4)
+    print("✅ data.json file successfully updated for dashboard.")
 
 if __name__ == "__main__":
-    fetch_real_rates()
+    fetch_and_generate()
