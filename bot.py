@@ -3,7 +3,15 @@ import pandas as pd
 from tabulate import tabulate
 
 # Exchanges initialize kar rahe hain
-binance = ccxt.binance({'enableRateLimit': True})
+binance = ccxt.binance({
+    'enableRateLimit': True,
+    'urls': {
+        'api': {
+            'public': 'https://api1.binance.com/api/v3',
+            'fapiPublic': 'https://fapi.binance.com/fapi/v1'
+        }
+    }
+})
 bybit = ccxt.bybit({'enableRateLimit': True})
 
 # Filters for Safety
