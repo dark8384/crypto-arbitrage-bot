@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Crypto Arbitrage Matrix</title>
+    <title>Live Crypto Arbitrage Matrix (Direct Stream)</title>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #121214; color: #e1e1e6; margin: 20px; }
         h1 { color: #00e676; text-align: center; font-size: 26px; font-weight: 700; letter-spacing: 1px; margin-bottom: 5px; }
@@ -17,43 +17,121 @@
         .highlight { color: #ffb74d; }
     </style>
     <script>
-        async function loadData() {
+        const MIN_FUNDING_GAP = 0.01;
+        const MAX_SPREAD_LOSS = 0.50;
+
+        async function fetchLiveMatrix() {
             try {
-                const response = await fetch('data.json?nocache=' + new Date().getTime());
-                const json = await response.json();
-                
-                document.getElementById('update-time').innerText = "🔴 Live Exchange Sync Time: " + json.last_updated;
+                // Fetching via direct public REST endpoints bypassing restricted cloud blocks
+                const [binanceRes, bybitRes] = await Promise.all([
+                    fetch('https://fapi.binance.com/fapi/v1/premiumIndex').then(res => res.json()),
+                    fetch('https://api.bybit.com/v5/market/tickers?category=linear').then(res => res.json())
+                ]);
+
+                let binanceData = {};
+                let bybitData = {};
+
+                // Process Binance Live Stream
+                binanceRes.forEach(item => {
+                    if (item.symbol.endsWith('USDT')) {
+                        let coin = item.symbol.replace('USDT', '');
+                        binanceData[coin] = {
+                            price: parseFloat(item.markPrice),
+                            funding: parseFloat(item.lastFundingRate) * 100
+                        };
+                    }
+                });
+
+                // Process Bybit Live Stream
+                bybitRes.result.list.forEach(item => {
+                    if (item.symbol.endsWith('USDT')) {
+                        let coin = item.symbol.replace('USDT', '');
+                        bybitData[coin] = {
+                            price: parseFloat(item.markPrice || item.lastPrice),
+                            funding: parseFloat(item.fundingRate || 0) * 100
+                        };
+                    }
+                });
+
+                let matched = [];
+                Object.keys(binanceData).forEach(coin => {
+                    if (bybitData[coin]) {
+                        let bPrice = binanceData[coin].price;
+                        let byPrice = bybitData[coin].price;
+                        let bFund = binanceData[coin].funding;
+                        let byFund = bybitData[coin].funding;
+
+                        if (bPrice <= 0 || byPrice <= 0) return;
+
+                        let gap = Math.abs(bFund - byFund);
+                        let avgPrice = (bPrice + byPrice) / 2;
+                        let spread = (Math.abs(bPrice - byPrice) / avgPrice) * 100;
+                        let netProfit = gap - spread;
+
+                        if (gap >= MIN_FUNDING_GAP) {
+                            // Direct Funding Premium Based Execution Mapping Rule
+                            let direction = bFund > byFund ? "Short Binance / Long Bybit" : "Long Binance / Short Bybit";
+                            let status = spread < MAX_SPREAD_LOSS ? "🟢 SAFE" : "❌ HIGH SPREAD";
+
+                            matched.append({
+                                coin: coin,
+                                bPrice: bPrice,
+                                byPrice: byPrice,
+                                bFund: bFund,
+                                byFund: byFund,
+                                gap: gap,
+                                spread: spread,
+                                netProfit: netProfit,
+                                direction: direction,
+                                status: status
+                            });
+                        }
+                    }
+                });
+
+                // Sort by Max Funding Gap
+                matched.sort((a, b) => b.gap - a.gap);
+
+                // Update DOM elements dynamically
+                document.getElementById('update-time').innerText = "🔴 Direct Local Stream Update: " + new Date().toISOString().replace('T', ' ').substring(0, 19) + " UTC";
                 
                 let tableBody = document.getElementById('table-body');
                 tableBody.innerHTML = "";
-                
-                json.data.forEach(row => {
-                    let statusClass = row.Status.includes('SAFE') ? 'safe' : 'unsafe';
+
+                matched.forEach(row => {
+                    let statusClass = row.status.includes('SAFE') ? 'safe' : 'unsafe';
+                    
+                    // Native dynamic decimal formatting based on price asset class
+                    let pDec = row.bPrice < 1 ? 6 : (row.bPrice < 100 ? 4 : 2);
+
                     let tr = `<tr>
-                        <td><strong>${row.Coin}</strong></td>
-                        <td>${row['Binance Price']}</td>
-                        <td>${row['Bybit Price']}</td>
-                        <td class="highlight">${row['Binance Funding']}</td>
-                        <td class="highlight">${row['Bybit Funding']}</td>
-                        <td style="font-weight:bold; color:#00e676">${row['Funding Gap']}</td>
-                        <td style="font-weight:bold; color:#ff5252">${row.Spread}</td>
-                        <td style="font-weight:bold; color:#ffffff; background-color:#1c2d1b; text-align:center;">${row['Est Net']}</td>
-                        <td><small>${row.Direction}</small></td>
-                        <td class="${statusClass}">${row.Status}</td>
+                        <td><strong>${row.coin}</strong></td>
+                        <td>$${row.bPrice.toFixed(pDec)}</td>
+                        <td>$${row.byPrice.toFixed(pDec)}</td>
+                        <td class="highlight">${row.bFund >= 0 ? '+' : ''}${row.bFund.toFixed(4)}%</td>
+                        <td class="highlight">${row.byFund >= 0 ? '+' : ''}${row.byFund.toFixed(4)}%</td>
+                        <td style="font-weight:bold; color:#00e676">${row.gap.toFixed(4)}%</td>
+                        <td style="font-weight:bold; color:#ff5252">${row.spread.toFixed(4)}%</td>
+                        <td style="font-weight:bold; color:#ffffff; background-color:#1c2d1b; text-align:center;">${row.netProfit >= 0 ? '+' : ''}${row.netProfit.toFixed(4)}%</td>
+                        <td><small>${row.direction}</small></td>
+                        <td class="${statusClass}">${row.status}</td>
                     </tr>`;
                     tableBody.innerHTML += tr;
                 });
-            } catch (e) {
-                console.log("Waiting for data pipeline update...");
+
+            } catch (err) {
+                console.error("Stream sync waiting: ", err);
             }
         }
-        setInterval(loadData, 5000);
-        window.onload = loadData;
+
+        // Live refresh every 5 seconds instantly
+        setInterval(fetchLiveMatrix, 5000);
+        window.onload = fetchLiveMatrix;
     </script>
 </head>
 <body>
     <h1>💰 CRYPTO FUTURES FUNDING ARBITRAGE MATRIX 💰</h1>
-    <div class="meta" id="update-time">Connecting to live dataset...</div>
+    <div class="meta" id="update-time">Initializing direct local network streams...</div>
     <table>
         <thead>
             <tr>
@@ -70,7 +148,7 @@
             </tr>
         </thead>
         <tbody id="table-body">
-            <tr><td colspan="10" style="text-align:center;">Initializing matrix data...</td></tr>
+            <tr><td colspan="10" style="text-align:center; color:#ffb74d;">Fetching directly via unblocked proxy channels...</td></tr>
         </tbody>
     </table>
 </body>
