@@ -2,14 +2,14 @@ name: Crypto Arbitrage Scanner
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/5 * * * *'  # Triggering high frequency scans every 5 minutes safely
   workflow_dispatch:
 
 jobs:
   run-scanner:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Gaining authorization rewrite control access tags
+      contents: write
 
     steps:
     - name: Checkout Code
@@ -27,10 +27,10 @@ jobs:
     - name: Execute Arbitrage Bot
       run: python bot.py
 
-    - name: Commit and Push live data.json back to Repository
+    - name: Commit and Push live data.json
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git add data.json
-        git commit -m "Automated live sync pricing block refresh" || exit 0
+        git commit -m "Automated dashboard backend price matrix update" || exit 0
         git push
