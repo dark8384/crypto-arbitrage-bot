@@ -25,7 +25,7 @@ jobs:
         pip install requests pandas ccxt
 
     - name: Execute Arbitrage Bot
-    run: python bot.py
+      run: python bot.py
 
     - name: Commit and Push live data.json
       run: |
