@@ -22,7 +22,7 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        pip install requests pandas
+        pip install requests pandas ccxt
 
     - name: Execute Arbitrage Bot
       run: python bot.py
@@ -32,5 +32,5 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git add data.json
-        git commit -m "Automated operational dashboard index sync" || exit 0
+        git commit -m "Automated dashboard real-time data sync loop" || exit 0
         git push
