@@ -5,31 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Crypto Arbitrage Matrix</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121214; color: #e1e1e6; margin: 20px; }
-        h1 { color: #00e676; text-align: center; font-size: 28px; letter-spacing: 1px; }
-        .meta { text-align: center; color: #a4a4a8; margin-bottom: 20px; font-size: 14px; font-family: monospace; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; background-color: #1a1a1e; box-shadow: 0 4px 10px rgba(0,0,0,0.5); border-radius: 8px; overflow: hidden; }
-        th, td { padding: 14px 12px; text-align: left; border-bottom: 1px solid #29292e; }
-        th { background-color: #29292e; color: #00e676; text-transform: uppercase; font-size: 13px; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #121214; color: #e1e1e6; margin: 20px; }
+        h1 { color: #00e676; text-align: center; font-size: 26px; font-weight: 700; letter-spacing: 1px; }
+        .meta { text-align: center; color: #a4a4a8; margin-bottom: 25px; font-size: 13px; font-family: monospace; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background-color: #1a1a1e; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 14px 12px; text-align: left; border-bottom: 1px solid #29292e; font-size: 14px; }
+        th { background-color: #29292e; color: #00e676; text-transform: uppercase; font-size: 12px; font-weight: 600; }
         tr:hover { background-color: #222226; }
         .safe { color: #00e676; font-weight: bold; }
         .unsafe { color: #ff5252; font-weight: bold; }
-        .highlight { color: #ffb74d; font-weight: 500; }
+        .highlight { color: #ffb74d; }
     </style>
     <script>
         async function loadData() {
             try {
-                // Hard cache bypass logic added using dynamic timestamp parameters
-                const response = await fetch('data.json?nocache=' + new Date().getTime());
+                // Forcing explicit network asset fetches via microsecond salt parameters
+                const response = await fetch('data.json?t=' + new Date().getTime());
                 const json = await response.json();
                 
-                document.getElementById('update-time').innerText = "🔴 Live Exchange Sync Time: " + json.last_updated;
+                document.getElementById('update-time').innerText = "🔴 Live Matrix Sync Update: " + json.last_updated;
                 
                 let tableBody = document.getElementById('table-body');
                 tableBody.innerHTML = "";
                 
                 if(!json.data || json.data.length === 0) {
-                    tableBody.innerHTML = "<tr><td colspan='10' style='text-align:center;'>Scanning feeds... Waiting for next backend block data update.</td></tr>";
+                    tableBody.innerHTML = "<tr><td colspan='10' style='text-align:center;'>Awaiting deployment updates...</td></tr>";
                     return;
                 }
                 
@@ -43,23 +43,23 @@
                         <td class="highlight">${row['Bybit Funding']}</td>
                         <td style="font-weight:bold; color:#00e676">${row['Funding Gap']}</td>
                         <td style="font-weight:bold; color:#ff5252">${row.Spread}</td>
-                        <td style="font-weight:bold; color:#ffffff; background-color:#1e291b">${row['Est Net']}</td>
+                        <td style="font-weight:bold; color:#ffffff; background-color:#1c2d1b; text-align:center; border-radius:4px;">${row['Est Net']}</td>
                         <td><small>${row.Direction}</small></td>
                         <td class="${statusClass}">${row.Status}</td>
                     </tr>`;
                     tableBody.innerHTML += tr;
                 });
             } catch (e) {
-                console.log("Waiting for data pipeline deployment...");
+                console.log("Sync error or waiting for active commit.");
             }
         }
-        setInterval(loadData, 5000); // 5 Seconds hard browser refresh DOM loop
+        setInterval(loadData, 5000); 
         window.onload = loadData;
     </script>
 </head>
 <body>
     <h1>💰 CRYPTO FUTURES FUNDING ARBITRAGE MATRIX 💰</h1>
-    <div class="meta" id="update-time">Connecting to live cloud storage pipeline...</div>
+    <div class="meta" id="update-time">Synchronizing dashboard pipeline array...</div>
     <table>
         <thead>
             <tr>
@@ -76,7 +76,7 @@
             </tr>
         </thead>
         <tbody id="table-body">
-            <tr><td colspan="10" style="text-align:center;">Initializing matrix data blocks...</td></tr>
+            <tr><td colspan="10" style="text-align:center;">Loading structural matrix...</td></tr>
         </tbody>
     </table>
 </body>
