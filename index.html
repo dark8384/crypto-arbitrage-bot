@@ -108,11 +108,8 @@
                 const bCoin = bMarkets[coin];
                 const byCoin = byMarkets[coin];
 
-                const bPrice = bCoin.price;
-                const byPrice = byCoin.price;
-                const bFunding = bCoin.funding;
-                const byFunding = byCoin.funding;
-
+               // 🔥 FIXED LOGIC: Direction based purely on Funding Rates, not Prices!
+const direction = bFunding > byFunding ? "Short Binance / Long Bybit" : "Long Binance / Short Bybit";
                 if (bPrice <= 0 || byPrice <= 0) return;
 
                 const fundingGap = Math.abs(bFunding - byFunding);
