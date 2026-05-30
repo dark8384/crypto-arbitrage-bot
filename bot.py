@@ -3,18 +3,21 @@ import pandas as pd
 import json
 from datetime import datetime
 
-MIN_FUNDING_GAP = 0.10
+MIN_FUNDING_GAP = 0.05  # Delta thoda low kiya taaki zyada tickers milein
 MAX_SPREAD_LOSS = 0.35
 
 def fetch_and_generate():
+    # Free global pipeline endpoint to bypass exchange IP restrictions safely
     url = "https://api.coingecko.com/api/v3/derivatives"
     
     try:
         response = requests.get(url, timeout=15)
         if response.status_code != 200:
+            print(f"❌ API Down or Rate Limited (Status: {response.status_code})")
             return
         data = response.json()
-    except:
+    except Exception as e:
+        print(f"❌ Connection Error: {e}")
         return
 
     opportunities = []
@@ -46,6 +49,7 @@ def fetch_and_generate():
             continue
 
     if not opportunities:
+        print("⚠️ No structural assets filtered from endpoints.")
         return
 
     df_raw = pd.DataFrame(opportunities)
@@ -94,15 +98,15 @@ def fetch_and_generate():
         except:
             continue
 
-    # JSON formats me save kar rahe hain taaki webpage ise fetch karke refresh kar sake
+    # JSON output target format definition
     final_data = {
-        "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
-        "data": matched_opportunities if matched_opportunities else []
+        "last_updated": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "data": matched_opportunities
     }
     
     with open('data.json', 'w') as f:
         json.dump(final_data, f, indent=4)
-    print("✅ data.json file successfully updated for dashboard.")
+    print("✅ data.json file successfully re-generated.")
 
 if __name__ == "__main__":
     fetch_and_generate()
