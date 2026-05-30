@@ -1,11 +1,36 @@
 name: Crypto Arbitrage Scanner
 
 on:
+  schedule:
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
   run-scanner:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
-    - name: Idle Status
-      run: echo "Computational shifting to live browser stream to prevent geo-blocking."
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Dependencies
+      run: |
+        pip install requests pandas ccxt
+
+    - name: Execute Arbitrage Bot
+      run: python bot.py
+
+    - name: Commit and Push live data.json
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add data.json
+        git commit -m "Automated dashboard real-time data sync loop" || exit 0
+        git push
