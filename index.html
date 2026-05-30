@@ -19,8 +19,7 @@
     <script>
         async function loadData() {
             try {
-                // Forcing explicit network asset fetches via microsecond salt parameters
-                const response = await fetch('data.json?t=' + new Date().getTime());
+                const response = await fetch('data.json?cache_break=' + new Date().getTime());
                 const json = await response.json();
                 
                 document.getElementById('update-time').innerText = "🔴 Live Matrix Sync Update: " + json.last_updated;
@@ -43,7 +42,7 @@
                         <td class="highlight">${row['Bybit Funding']}</td>
                         <td style="font-weight:bold; color:#00e676">${row['Funding Gap']}</td>
                         <td style="font-weight:bold; color:#ff5252">${row.Spread}</td>
-                        <td style="font-weight:bold; color:#ffffff; background-color:#1c2d1b; text-align:center; border-radius:4px;">${row['Est Net']}</td>
+                        <td style="font-weight:bold; color:#ffffff; background-color:#1c2d1b; text-align:center;">${row['Est Net']}</td>
                         <td><small>${row.Direction}</small></td>
                         <td class="${statusClass}">${row.Status}</td>
                     </tr>`;
