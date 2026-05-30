@@ -17,12 +17,50 @@
         .highlight { color: #ffb74d; }
         .loading-status { text-align: center; color: #ffb74d; font-weight: bold; padding: 20px; font-size: 16px; }
     </style>
+    <script>
+        async function loadData() {
+            try {
+                // Hard cache bypass logic added using dynamic timestamp parameters
+                const response = await fetch('data.json?nocache=' + new Date().getTime());
+                const json = await response.json();
+                
+                document.getElementById('update-time').innerText = "🔴 Live Exchange Sync Time: " + json.last_updated;
+                
+                let tableBody = document.getElementById('table-body');
+                tableBody.innerHTML = "";
+                
+                if(!json.data || json.data.length === 0) {
+                    tableBody.innerHTML = "<tr><td colspan='10' style='text-align:center;'>Scanning feeds... Waiting for next backend block data update.</td></tr>";
+                    return;
+                }
+                
+                json.data.forEach(row => {
+                    let statusClass = row.Status.includes('SAFE') ? 'safe' : 'unsafe';
+                    let tr = `<tr>
+                        <td><strong>${row.Coin}</strong></td>
+                        <td>${row['Binance Price']}</td>
+                        <td>${row['Bybit Price']}</td>
+                        <td class="highlight">${row['Binance Funding']}</td>
+                        <td class="highlight">${row['Bybit Funding']}</td>
+                        <td style="font-weight:bold; color:#00e676">${row['Funding Gap']}</td>
+                        <td style="font-weight:bold; color:#ff5252">${row.Spread}</td>
+                        <td style="font-weight:bold; color:#ffffff; background-color:#1c2d1b; text-align:center;">${row['Est Net']}</td>
+                        <td><small>${row.Direction}</small></td>
+                        <td class="${statusClass}">${row.Status}</td>
+                    </tr>`;
+                    tableBody.innerHTML += tr;
+                });
+            } catch (e) {
+                console.log("Waiting for data pipeline deployment...");
+            }
+        }
+        setInterval(loadData, 5000); // 5 Seconds hard browser refresh DOM loop
+        window.onload = loadData;
+    </script>
 </head>
 <body>
-
     <h1>💰 CRYPTO FUTURES FUNDING ARBITRAGE MATRIX 💰</h1>
-    <div class="meta" id="update-time">Initializing direct local network streams...</div>
-
+    <div class="meta" id="update-time">Connecting to live cloud storage pipeline...</div>
     <table>
         <thead>
             <tr>
@@ -39,162 +77,8 @@
             </tr>
         </thead>
         <tbody id="table-body">
-            <tr><td colspan="10" class="loading-status" id="loading-text">Fetching directly via unblocked proxy channels...</td></tr>
+            <tr><td colspan="10" style="text-align:center;">Initializing matrix data blocks...</td></tr>
         </tbody>
     </table>
-
-    <script>
-        async function fetchBinance() {
-            try {
-                // Using alternative absolute mirror router to bypass CORS browser policy
-                const res = await fetch("https://dapi.binance.com/dapi/v1/premiumIndex");
-                if (!res.ok) {
-                    // Secondary proxy mirror fallback
-                    const altRes = await fetch("https://fapi.binance.com/fapi/v1/premiumIndex");
-                    return altRes.ok ? await altRes.json() : null;
-                }
-                const data = await res.json();
-                let tickers = {};
-                
-                // Processing structures safely
-                const arrayData = Array.isArray(data) ? data : [];
-                arrayData.forEach(item => {
-                    const symbol = item.symbol;
-                    if (symbol && (symbol.endsWith('USDT') || symbol.endsWith('USD'))) {
-                        const coin = symbol.replace('USDT', '').replace('USD', '').split('_')[0];
-                        tickers[coin] = {
-                            price: parseFloat(item.markPrice || 0),
-                            funding: parseFloat(item.lastFundingRate || 0) * 100
-                        };
-                    }
-                });
-                return Object.keys(tickers).length ? tickers : null;
-            } catch (e) {
-                // Last ditch fallback to direct public aggregated feeds
-                try {
-                    const res = await fetch("https://fapi.binance.com/fapi/v1/premiumIndex");
-                    const data = await res.json();
-                    let tickers = {};
-                    data.forEach(item => {
-                        if (item.symbol.endsWith('USDT')) {
-                            const coin = item.symbol.replace('USDT', '');
-                            tickers[coin] = { price: parseFloat(item.markPrice), funding: parseFloat(item.lastFundingRate) * 100 };
-                        }
-                    });
-                    return tickers;
-                } catch(err) {
-                    console.error("Binance Critical Edge Block:", err);
-                    return null;
-                }
-            }
-        }
-
-        async function fetchBybit() {
-            try {
-                // Hit Bybit V5 direct linear channel mapping
-                const res = await fetch("https://api.bybit.com/v5/market/tickers?category=linear");
-                if (!res.ok) return null;
-                const json = await res.json();
-                let tickers = {};
-                const list = json.result?.list || [];
-                list.forEach(item => {
-                    const symbol = item.symbol;
-                    if (symbol && symbol.endsWith('USDT')) {
-                        const coin = symbol.replace('USDT', '');
-                        tickers[coin] = {
-                            price: parseFloat(item.markPrice || item.lastPrice || 0),
-                            funding: parseFloat(item.fundingRate || 0) * 100
-                        };
-                    }
-                });
-                return tickers;
-            } catch (e) {
-                console.error("Bybit Critical Edge Block:", e);
-                return null;
-            }
-        }
-
-        async function updateMatrix() {
-            const bMarkets = await fetchBinance();
-            const byMarkets = await fetchBybit();
-
-            if (!bMarkets || !byMarkets) {
-                // If any exchange fails, fallback to test mock if live endpoints are completely zeroed out by localISP
-                if(!bMarkets) console.log("Binance stream waiting...");
-                if(!byMarkets) console.log("Bybit stream waiting...");
-                return;
-            }
-
-            let opportunities = [];
-            const commonCoins = Object.keys(bMarkets).filter(coin => byMarkets[coin]);
-
-            commonCoins.forEach(coin => {
-                const bCoin = bMarkets[coin];
-                const byCoin = byMarkets[coin];
-
-                const bPrice = bCoin.price;
-                const byPrice = byCoin.price;
-                const bFunding = bCoin.funding;
-                const byFunding = byCoin.funding;
-
-                if (bPrice <= 0 || byPrice <= 0) return;
-
-                const fundingGap = Math.abs(bFunding - byFunding);
-                const avgPrice = (bPrice + byPrice) / 2.0;
-                const spreadPct = (Math.abs(bPrice - byPrice) / avgPrice) * 100.0;
-                const netProfit = fundingGap - spreadPct;
-
-                const direction = bFunding > byFunding ? "Short Binance / Long Bybit" : "Long Binance / Short Bybit";
-                const status = spreadPct < 0.50 ? "🟢 SAFE" : "❌ HIGH SPREAD";
-
-                opportunities.push({
-                    coin: coin,
-                    bPrice: bPrice.toFixed(6),
-                    byPrice: byPrice.toFixed(6),
-                    bFunding: (bFunding >= 0 ? "+" : "") + bFunding.toFixed(4) + "%",
-                    byFunding: (byFunding >= 0 ? "+" : "") + byFunding.toFixed(4) + "%",
-                    fundingGap: fundingGap.toFixed(4) + "%",
-                    spreadPct: spreadPct.toFixed(4) + "%",
-                    netProfit: (netProfit >= 0 ? "+" : "") + netProfit.toFixed(4) + "%",
-                    direction: direction,
-                    status: status,
-                    rawGap: fundingGap
-                });
-            });
-
-            opportunities.sort((a, b) => b.rawGap - a.rawGap);
-
-            const tableBody = document.getElementById('table-body');
-            if(opportunities.length > 0) {
-                tableBody.innerHTML = "";
-            } else {
-                return;
-            }
-
-            opportunities.forEach(row => {
-                const statusClass = row.status.includes('SAFE') ? 'safe' : 'unsafe';
-                let tr = `<tr>
-                    <td><strong>${row.coin}</strong></td>
-                    <td>$${row.bPrice}</td>
-                    <td>$${row.byPrice}</td>
-                    <td class="highlight">${row.bFunding}</td>
-                    <td class="highlight">${row.byFunding}</td>
-                    <td style="font-weight:bold; color:#00e676">${row.fundingGap}</td>
-                    <td style="font-weight:bold; color:#ff5252">${row.spreadPct}</td>
-                    <td style="font-weight:bold; color:#ffffff; background-color:#1c2d1b; text-align:center;">${row.netProfit}</td>
-                    <td><small>${row.direction}</small></td>
-                    <td class="${statusClass}">${row.status}</td>
-                </tr>`;
-                tableBody.innerHTML += tr;
-            });
-
-            const now = new Date();
-            document.getElementById('update-time').innerText = "🔴 Proxy Local Stream Update: " + now.toISOString().replace('T', ' ').substring(0, 19) + " UTC";
-        }
-
-        // Run network pipelines immediately
-        updateMatrix();
-        setInterval(updateMatrix, 4000);
-    </script>
 </body>
 </html>
