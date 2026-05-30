@@ -108,18 +108,15 @@
                 const bCoin = bMarkets[coin];
                 const byCoin = byMarkets[coin];
 
-               // 🔥 FIXED LOGIC: Direction based purely on Funding Rates, not Prices!
-const direction = bFunding > byFunding ? "Short Binance / Long Bybit" : "Long Binance / Short Bybit";
-                if (bPrice <= 0 || byPrice <= 0) return;
+      // 🟢 Absolute Core Mathematical Mappings 
+        const fundingGap = Math.abs(bFunding - byFunding);
+        const avgPrice = (bPrice + byPrice) / 2.0;
+        const spreadPct = (Math.abs(bPrice - byPrice) / avgPrice) * 100.0;
+        const netProfit = fundingGap - spreadPct;
 
-                const fundingGap = Math.abs(bFunding - byFunding);
-                const avgPrice = (bPrice + byPrice) / 2.0;
-                const spreadPct = (Math.abs(bPrice - byPrice) / avgPrice) * 100.0;
-                const netProfit = fundingGap - spreadPct;
-
-                const direction = bPrice > byPrice ? "Short Binance / Long Bybit" : "Long Binance / Short Bybit";
-                const status = spreadPct < 0.50 ? "🟢 SAFE" : "❌ HIGH SPREAD";
-
+        // 🔥 FIXED DIRECTION LOGIC: Based completely on funding premium delta
+        const direction = bFunding > byFunding ? "Short Binance / Long Bybit" : "Long Binance / Short Bybit";
+        const status = spreadPct < 0.50 ? "🟢 SAFE" : "❌ HIGH SPREAD";
                 opportunities.push({
                     coin: coin,
                     bPrice: bPrice.toFixed(6),
