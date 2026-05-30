@@ -25,12 +25,12 @@ jobs:
         pip install requests pandas ccxt
 
     - name: Execute Arbitrage Bot
-      run: python bot.py
+    run: python bot.py
 
     - name: Commit and Push live data.json
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git add data.json
-        git commit -m "Automated dashboard real-time data sync loop" || exit 0
+        git commit -m "Automated operational dashboard live sync matrix update" || exit 0
         git push
